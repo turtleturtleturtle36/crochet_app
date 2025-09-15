@@ -156,9 +156,14 @@
             const imageUrls = [];
             const uploadPromises = Array.from(files).map(async file => {
                 const storageRef = ref(storage, `images/${Date.now()}-${file.name}`);
-                await uploadBytes(storageRef, file);
-                const url = await getDownloadURL(storageRef);
-                imageUrls.push(url);
+                try {
+                    await uploadBytes(storageRef, file);
+                    const url = await getDownloadURL(storageRef);
+                    imageUrls.push(url);
+                } catch (error) {
+                    console.error("Image upload failed:", error);
+                    showNotification('Image upload failed. Please try again.');
+                }
             });
 
             await Promise.all(uploadPromises);
@@ -369,13 +374,13 @@
                 resetProjectForm();
             });
 
-            const closeModalBtns = document.querySelectorAll('[data-dismiss="modal"]');
+            const closeModalBtns = document.querySelectorAll('#closeModalBtn');
             closeModalBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     closeModal('projectModal');
                 });
             });
-
+            document.getElementById('searchBar').addEventListener('input', (e) => filterProjects(e.target.value));
             viewToggleButton.addEventListener('click', toggleView);
             finishedToggle.addEventListener('click', toggleCollageView);
 
@@ -448,11 +453,15 @@
                         imgWrapper.innerHTML = `
                             <img src="${e.target.result}" alt="Project Image" class="w-full h-full object-cover">
                             <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onclick="setMainImage('${e.target.result}')" class="bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
+                                <button class="set-main-btn bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
                                     Set as Main
                                 </button>
                             </div>
                         `;
+                        const setMainBtn = imgWrapper.querySelector('.set-main-btn');
+                        if (setMainBtn) {
+                          setMainBtn.addEventListener('click', () => setMainImage(e.target.result));
+                        }
                         imagePreviewContainer.appendChild(imgWrapper);
                     };
                     reader.readAsDataURL(file);
