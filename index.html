@@ -9,16 +9,25 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your Firebase config is now constructed inside initApp()
-        let firebaseConfig = {};
+        // IMPORTANT: Paste your Firebase Project ID here.
+        const projectId = 'angiecrochetapp';
+
+        const firebaseConfig = {
+            apiKey: "unused-for-now",
+            authDomain: projectId + ".firebaseapp.com",
+            projectId: projectId,
+            storageBucket: projectId + ".appspot.com",
+            messagingSenderId: "unused",
+            appId: "unused"
+        };
         
         window.appData = {
             db: null,
             auth: null,
             userId: null,
-            appId: null,
+            appId: projectId,
             projects: [],
             filteredProjects: [],
             currentProjectId: null,
@@ -29,51 +38,26 @@
 
         async function initApp() {
             try {
-                const savedAppId = localStorage.getItem('crochet_appId');
-                
-                if (savedAppId) {
-                    window.appData.appId = savedAppId;
-                    
-                    firebaseConfig = {
-                        apiKey: "unused-for-now",
-                        authDomain: savedAppId + ".firebaseapp.com",
-                        projectId: savedAppId,
-                        storageBucket: savedAppId + ".appspot.com",
-                        messagingSenderId: "unused",
-                        appId: "unused"
-                    };
-                    
-                    const app = initializeApp(firebaseConfig);
-                    window.appData.db = getFirestore(app);
-                    window.appData.auth = getAuth(app);
-                    
-                    await signInAnonymously(window.appData.auth);
-                    window.appData.userId = window.appData.auth.currentUser.uid;
-                    window.appData.isAuthReady = true;
-                    
-                    loadProjects();
-                    document.getElementById('setupModal').classList.add('hidden');
-                    document.body.classList.remove('overflow-hidden');
-                } else {
-                    openModal('setupModal');
+                if (!projectId || projectId === 'YOUR_PROJECT_ID_HERE') {
+                    console.error("Firebase initialization failed: Project ID is not set.");
+                    return; 
                 }
+                
+                const app = initializeApp(firebaseConfig);
+                window.appData.db = getFirestore(app);
+                window.appData.auth = getAuth(app);
+                
+                await signInAnonymously(window.appData.auth);
+                window.appData.userId = window.appData.auth.currentUser.uid;
+                window.appData.isAuthReady = true;
+                
+                loadProjects();
+                console.log("Firebase initialized successfully.");
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
             }
         }
         
-        window.saveSetup = function() {
-            const setupAppId = document.getElementById('setupAppId').value;
-            
-            if (setupAppId) {
-                localStorage.setItem('crochet_appId', setupAppId);
-                closeModal('setupModal');
-                window.location.reload();
-            } else {
-                showNotification('Please enter the Project ID to proceed.');
-            }
-        }
-
         function loadProjects() {
             if (!window.appData.isAuthReady) return;
             const projectsRef = collection(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects');
@@ -418,25 +402,6 @@
                 <button type="button" id="deleteProjectBtn" class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200 hidden">
                     Delete Project
                 </button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- One-time Setup Modal -->
-    <div id="setupModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div class="modal-content bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-sm transform">
-            <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">One-Time Setup</h3>
-            <p class="text-sm text-gray-600 mb-4 text-center">Please enter your project ID to connect your app. You can find this in the Firebase console.</p>
-            <div class="space-y-4">
-                <div>
-                    <label for="setupAppId" class="block text-sm font-medium text-gray-700">Firebase Project ID</label>
-                    <input type="text" id="setupAppId" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm" placeholder="Your Project ID" required>
-                </div>
-                <div class="flex justify-center pt-2">
-                    <button type="button" onclick="saveSetup()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
-                        Save & Connect
-                    </button>
-                </div>
             </div>
         </div>
     </div>
