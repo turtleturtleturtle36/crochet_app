@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
@@ -20,6 +20,7 @@
         let db;
         let auth;
         let storage;
+        let userId;
         
         // Global state for the app
         window.appData = {
@@ -45,6 +46,9 @@
         const confirmNoBtn = document.getElementById('confirmNoBtn');
         const modalTitle = document.getElementById('modalTitle');
         const userIdDisplay = document.getElementById('userIdDisplay');
+        const addProjectBtn = document.getElementById('addProjectBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const finishedToggle = document.getElementById('finishedToggle');
         
         // Custom modal functions
         let confirmAction = null;
@@ -60,16 +64,20 @@
             confirmAction = null;
         }
 
-        confirmYesBtn.addEventListener('click', () => {
-            if (confirmAction) {
-                confirmAction();
-            }
-            hideConfirm();
-        });
+        if(confirmYesBtn) {
+            confirmYesBtn.addEventListener('click', () => {
+                if (confirmAction) {
+                    confirmAction();
+                }
+                hideConfirm();
+            });
+        }
 
-        confirmNoBtn.addEventListener('click', () => {
-            hideConfirm();
-        });
+        if(confirmNoBtn) {
+            confirmNoBtn.addEventListener('click', () => {
+                hideConfirm();
+            });
+        }
 
         // Firebase Initialization
         async function initFirebase() {
@@ -83,7 +91,11 @@
                 window.appData.auth = auth;
                 window.appData.storage = storage;
 
-                console.log("Firebase initialized. Using public collection.");
+                // Sign in anonymously to get a valid user ID for Firestore security rules
+                await signInAnonymously(auth);
+                userId = auth.currentUser.uid;
+
+                console.log("Firebase initialized. Anonymous user signed in with ID:", userId);
                 loadProjects();
 
             } catch (error) {
@@ -93,8 +105,8 @@
         }
         
         function loadProjects() {
-            // Using a public collection path since authentication is not required
-            const projectsRef = collection(db, 'artifacts', appId, 'public', 'data', 'projects');
+            // Using a user-specific collection path
+            const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
             onSnapshot(projectsRef, (snapshot) => {
                 window.appData.projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 filterProjects(document.getElementById('searchBar').value);
@@ -109,10 +121,10 @@
         window.saveProject = async function(projectData) {
             try {
                 if (projectData.id) {
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectData.id);
+                    const docRef = doc(db, 'artifacts', appId, 'users', userId, 'projects', projectData.id);
                     await setDoc(docRef, projectData, { merge: true });
                 } else {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'projects'), {
+                    await addDoc(collection(db, 'artifacts', appId, 'users', userId, 'projects'), {
                         ...projectData,
                         createdAt: serverTimestamp()
                     });
@@ -128,23 +140,9 @@
 
         window.deleteProject = async function(projectId) {
             try {
-                const projectDoc = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId));
-                const projectData = projectDoc.data();
-                
-                // Delete images from storage
-                if (projectData.images && Array.isArray(projectData.images)) {
-                    await Promise.all(projectData.images.map(imgUrl => {
-                        try {
-                            const imageRef = ref(storage, imgUrl);
-                            return deleteObject(imageRef).catch(e => console.error("Error deleting image:", e));
-                        } catch(e) {
-                            console.error("Invalid image URL for deletion:", imgUrl, e);
-                            return Promise.resolve();
-                        }
-                    }));
-                }
-
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projects', projectId));
+                // Deleting the document from Firestore.
+                // Note: Image deletion from storage is removed due to permission errors for unauthenticated users.
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'projects', projectId));
                 showNotification('Project deleted successfully!');
                 closeModal('projectModal');
 
@@ -176,19 +174,18 @@
             renderProjects();
         };
 
-        window.toggleView = function() {
+        function toggleView() {
             window.appData.isVerticalView = !window.appData.isVerticalView;
             renderProjects();
         };
 
-        window.toggleCollageView = function() {
+        function toggleCollageView() {
             window.appData.showFinishedOnly = !window.appData.showFinishedOnly;
             renderCollage();
         };
         
         function renderCollage() {
             const collageContainer = document.getElementById('image-collage');
-            const finishedToggle = document.getElementById('finishedToggle');
             collageContainer.innerHTML = '';
             
             if (window.appData.showFinishedOnly) {
@@ -258,7 +255,6 @@
 
         function renderProjects() {
             const categories = ['wishlist', 'wip', 'finished'];
-            const viewToggleButton = document.getElementById('viewToggleButton');
             
             if (window.appData.isVerticalView) {
                 viewToggleButton.textContent = 'Switch to Gallery View';
@@ -302,7 +298,7 @@
                                 <div class="w-2.5 h-2.5 rounded-full ${project.category === 'wishlist' ? 'bg-blue-500' : project.category === 'wip' ? 'bg-yellow-500' : 'bg-green-500'}"></div>
                             </div>
                         `;
-                        card.onclick = () => openProject(project);
+                        card.addEventListener('click', () => openProject(project));
                         container.appendChild(card);
                     });
                 }
@@ -332,18 +328,19 @@
                     imgWrapper.innerHTML = `
                         <img src="${imgUrl}" alt="Project Image" class="w-full h-full object-cover">
                         <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="setMainImage('${imgUrl}')" class="bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
+                            <button id="setMainBtn-${index}" class="bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
                                 Set as Main
                             </button>
                         </div>
                     `;
+                    imgWrapper.querySelector(`#setMainBtn-${index}`).addEventListener('click', () => setMainImage(imgUrl));
                     imagePreviewContainer.appendChild(imgWrapper);
                 });
             }
             openModal('projectModal');
         }
 
-        window.setMainImage = function(imgUrl) {
+        function setMainImage(imgUrl) {
             if (window.appData.currentProjectId) {
                 const project = window.appData.projects.find(p => p.id === window.appData.currentProjectId);
                 if (project) {
@@ -366,7 +363,22 @@
         window.onload = function() {
             initFirebase();
             
-            const projectForm = document.getElementById('projectForm');
+            // Event Listeners
+            addProjectBtn.addEventListener('click', () => {
+                openModal('projectModal');
+                resetProjectForm();
+            });
+
+            const closeModalBtns = document.querySelectorAll('[data-dismiss="modal"]');
+            closeModalBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    closeModal('projectModal');
+                });
+            });
+
+            viewToggleButton.addEventListener('click', toggleView);
+            finishedToggle.addEventListener('click', toggleCollageView);
+
             projectForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
@@ -416,12 +428,14 @@
             });
             
             const deleteProjectBtn = document.getElementById('deleteProjectBtn');
-            deleteProjectBtn.addEventListener('click', () => {
-                const projectId = document.getElementById('projectId').value;
-                showConfirm("Are you sure you want to delete this project?", () => {
-                    window.deleteProject(projectId);
+            if (deleteProjectBtn) {
+                deleteProjectBtn.addEventListener('click', () => {
+                    const projectId = document.getElementById('projectId').value;
+                    showConfirm("Are you sure you want to delete this project?", () => {
+                        window.deleteProject(projectId);
+                    });
                 });
-            });
+            }
             
             document.getElementById('projectImages').addEventListener('change', (e) => {
                 const imagePreviewContainer = document.getElementById('image-preview');
@@ -450,7 +464,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: #d8c4e4;
+            background: #fbcfe8; /* Soft pink background */
             transition: background-color 0.3s ease-in-out;
         }
 
@@ -490,16 +504,19 @@
     </style>
 </head>
 <body class="p-4 sm:p-8 min-h-screen py-12">
+    <!-- Witty Slogan at the top -->
+    <p class="text-xl text-center text-pink-900 font-semibold italic mb-12 drop-shadow-sm">"I'm not addicted to crochet, we're just in a committed relationship."</p>
+
     <!-- Main UI Container -->
     <div class="container mx-auto">
         <div class="flex flex-col sm:flex-row items-center justify-between mb-8 space-y-4 sm:space-y-0">
             <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 drop-shadow-lg">Angie's Crochet Projects</h1>
             <p class="text-lg text-center text-gray-600 mb-4 font-semibold italic">"My hooks are ready for an adventure."</p>
             <div class="flex space-x-2">
-                <button id="viewToggleButton" onclick="toggleView()" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                <button id="viewToggleButton" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
                     Switch to List View
                 </button>
-                <button onclick="openModal('projectModal'); resetProjectForm();" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                <button id="addProjectBtn" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
                     + Add Project
                 </button>
             </div>
@@ -530,7 +547,7 @@
         <div class="mt-16">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-2xl font-bold text-gray-800">Recent Creations</h2>
-                <button id="finishedToggle" onclick="toggleCollageView()" class="bg-gray-200 text-gray-700 text-sm font-semibold py-2 px-4 rounded-full transition duration-200 hover:bg-gray-300">
+                <button id="finishedToggle" class="bg-gray-200 text-gray-700 text-sm font-semibold py-2 px-4 rounded-full transition duration-200 hover:bg-gray-300">
                     Show Finished Only
                 </button>
             </div>
@@ -553,7 +570,7 @@
 
     <!-- Modal for adding/editing projects -->
     <div id="projectModal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50">
-        <div class="modal-content bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-2xl transform">
+        <div class="modal-content bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-2xl transform overflow-y-auto max-h-screen">
             <h3 id="modalTitle" class="text-2xl font-bold text-gray-800 mb-6 text-center">Add New Project</h3>
             <form id="projectForm" class="space-y-4">
                 <input type="hidden" id="projectId">
@@ -598,7 +615,7 @@
                     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
                         Save Project
                     </button>
-                    <button type="button" onclick="closeModal('projectModal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-xl transition duration-200">
+                    <button type="button" id="closeModalBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-xl transition duration-200">
                         Cancel
                     </button>
                     <button type="button" id="deleteProjectBtn" class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200 hidden">
@@ -612,5 +629,7 @@
     <!-- Notification Toast -->
     <div id="notification-toast" class="fixed bottom-8 right-8 bg-gray-800 text-white px-6 py-4 rounded-xl shadow-lg hidden"></div>
 
+    <!-- Witty Slogan at the bottom -->
+    <p class="text-xl text-center text-pink-900 font-semibold italic mt-12 drop-shadow-sm">"Don't interrupt me while I'm crocheting... it's a yarn-sitive situation."</p>
 </body>
 </html>
