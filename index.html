@@ -11,7 +11,7 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your Firebase config goes here. The app will construct this based on your Project ID.
+        // Your Firebase config is now constructed inside initApp()
         let firebaseConfig = {};
         
         window.appData = {
