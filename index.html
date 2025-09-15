@@ -11,7 +11,7 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your Firebase config will be generated here in a later step
+        // Your Firebase config goes here. Delete the line below and paste the config object from your Firebase console.
         const firebaseConfig = {};
         
         window.appData = {
@@ -23,7 +23,8 @@
             filteredProjects: [],
             currentProjectId: null,
             isVerticalView: false,
-            showFinishedOnly: false
+            showFinishedOnly: false,
+            isAuthReady: false
         };
 
         async function initApp() {
@@ -39,6 +40,7 @@
                     
                     await signInAnonymously(window.appData.auth);
                     window.appData.userId = window.appData.auth.currentUser.uid;
+                    window.appData.isAuthReady = true;
                     
                     loadProjects();
                     document.getElementById('setupModal').classList.add('hidden');
@@ -64,6 +66,7 @@
         }
 
         function loadProjects() {
+            if (!window.appData.isAuthReady) return;
             const projectsRef = collection(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects');
             onSnapshot(projectsRef, (snapshot) => {
                 window.appData.projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -77,6 +80,11 @@
         }
         
         window.saveProject = async function(projectData) {
+            if (!window.appData.isAuthReady) {
+                showNotification('App is not ready. Please wait a moment and try again.');
+                return;
+            }
+
             try {
                 if (projectData.id) {
                     const docRef = doc(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects', projectData.id);
@@ -97,6 +105,11 @@
         }
 
         window.deleteProject = async function(projectId) {
+            if (!window.appData.isAuthReady) {
+                showNotification('App is not ready. Please wait a moment and try again.');
+                return;
+            }
+
             try {
                 await deleteDoc(doc(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects', projectId));
                 showNotification('Project deleted successfully!');
@@ -158,6 +171,7 @@
         }
 
         window.filterProjects = function(query) {
+            if (!window.appData.isAuthReady) return;
             const lowerQuery = query.toLowerCase();
             window.appData.filteredProjects = window.appData.projects.filter(project => {
                 const searchString = `${project.name} ${project.pattern || ''} ${project.yarn || ''} ${project.hookSize || ''} ${project.notes || ''}`.toLowerCase();
