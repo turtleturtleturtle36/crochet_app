@@ -205,16 +205,11 @@
             background-repeat: no-repeat;
             background-attachment: fixed;
             transition: background-color 0.3s ease-in-out;
-            padding-top: 6rem;
+            padding-top: 1rem;
             padding-bottom: 2rem;
             box-sizing: border-box;
         }
 
-        .header {
-            background-color: #e3f2fd;
-            backdrop-filter: blur(10px);
-            z-index: 10;
-        }
         .container {
             max-width: 800px;
         }
@@ -251,10 +246,10 @@
     </style>
 </head>
 <body class="p-4 sm:p-8">
-    <!-- Fixed Header -->
-    <header class="fixed top-0 left-0 w-full header p-4 sm:p-6 shadow-md border-b-2 border-purple-300">
-        <div class="container mx-auto flex items-center justify-between">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 drop-shadow-lg">Angie's Crochet Projects</h1>
+    <div class="container mx-auto mt-4">
+        <!-- Main page Title Line -->
+        <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 drop-shadow-lg mb-2 sm:mb-0">Angie's Crochet Projects</h1>
             <div class="flex space-x-2">
                 <button id="viewToggleButton" onclick="toggleView()" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
                     Switch to List View
@@ -264,12 +259,6 @@
                 </button>
             </div>
         </div>
-    </header>
-
-    <!-- Main Content Area -->
-    <div class="container mx-auto mt-4">
-        <!-- Main page Title Line -->
-        <h2 class="text-xl sm:text-2xl font-bold text-gray-700 text-center mb-4">A digital yarn stash for all your inspirations.</h2>
         
         <!-- Search Bar -->
         <div class="mb-8">
@@ -310,7 +299,7 @@
     </div>
 
     <!-- Modal for adding/editing projects -->
-    <div id="projectModal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50">
+    <div id="projectModal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50 p-4">
         <div class="modal-content bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-2xl transform">
             <h3 id="modalTitle" class="text-2xl font-bold text-gray-800 mb-6 text-center">Add New Project</h3>
             <form id="projectForm" class="space-y-4">
