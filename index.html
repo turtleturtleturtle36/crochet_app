@@ -12,7 +12,8 @@
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Your Firebase config goes here. Delete the line below and paste the config object from your Firebase console.
-        const firebaseConfig = {};
+        const app = initializeApp(firebaseConfig);
+        
         
         window.appData = {
             db: null,
