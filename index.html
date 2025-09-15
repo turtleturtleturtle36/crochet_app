@@ -200,7 +200,7 @@
         }
         body {
             font-family: 'Inter', sans-serif;
-            background: #e3f2fd;
+            background: #fde6e3;
             background-size: cover;
             background-repeat: no-repeat;
             background-attachment: fixed;
@@ -299,63 +299,70 @@
     </div>
 
     <!-- Modal for adding/editing projects -->
-    <div id="projectModal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50 p-4">
-        <div class="modal-content bg-white rounded-3xl shadow-2xl p-6 w-full max-w-2xl transform overflow-y-auto max-h-[90vh]">
-            <h3 id="modalTitle" class="text-2xl font-bold text-gray-800 mb-6 text-center">Add New Project</h3>
-            <form id="projectForm" class="space-y-4">
-                <input type="hidden" id="projectId">
-                <div>
-                    <label for="projectName" class="block text-sm font-medium text-gray-700">Project Name</label>
-                    <input type="text" id="projectName" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div>
-                    <label for="projectCategory" class="block text-sm font-medium text-gray-700">Category</label>
-                    <select id="projectCategory" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
-                        <option value="wishlist">Wishlist</option>
-                        <option value="wip">Work in Progress</option>
-                        <option value="finished">Finished</option>
-                    </select>
-                </div>
-                 <div>
-                    <label for="pattern" class="block text-sm font-medium text-gray-700">Pattern</label>
-                    <input type="text" id="pattern" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                    <label for="yarn" class="block text-sm font-medium text-gray-700">Yarn</label>
-                    <input type="text" id="yarn" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                    <label for="hookSize" class="block text-sm font-medium text-gray-700">Hook Size</label>
-                    <input type="text" id="hookSize" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                    <label for="notesLink" class="block text-sm font-medium text-gray-700">Link to Apple Notes</label>
-                    <input type="text" id="notesLink" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                    <label for="projectNotes" class="block text-sm font-medium text-gray-700">Notes</label>
-                    <textarea id="projectNotes" rows="4" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
-                </div>
-                <div>
-                    <label for="projectImages" class="block text-sm font-medium text-gray-700">Images</label>
-                    <input type="file" id="projectImages" multiple accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                    <div id="image-preview" class="flex flex-wrap gap-2 mt-4"></div>
-                </div>
-                <div class="flex justify-between items-center pt-4">
-                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
-                        Save Project
-                    </button>
-                    <button type="button" onclick="closeModal('projectModal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-xl transition duration-200">
-                        Cancel
-                    </button>
-                    <button type="button" id="deleteProjectBtn" class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200 hidden">
-                        Delete Project
-                    </button>
-                </div>
-            </form>
+    <div id="projectModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="modal-content bg-white rounded-3xl shadow-2xl w-11/12 max-w-2xl transform flex flex-col max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="p-6 pb-2">
+                <h3 id="modalTitle" class="text-2xl font-bold text-gray-800 text-center">Add New Project</h3>
+            </div>
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 pt-2 overflow-y-auto">
+                <form id="projectForm" class="space-y-4">
+                    <input type="hidden" id="projectId">
+                    <div>
+                        <label for="projectName" class="block text-sm font-medium text-gray-700">Project Name</label>
+                        <input type="text" id="projectName" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <div>
+                        <label for="projectCategory" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select id="projectCategory" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                            <option value="wishlist">Wishlist</option>
+                            <option value="wip">Work in Progress</option>
+                            <option value="finished">Finished</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="pattern" class="block text-sm font-medium text-gray-700">Pattern</label>
+                        <input type="text" id="pattern" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="yarn" class="block text-sm font-medium text-gray-700">Yarn</label>
+                        <input type="text" id="yarn" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="hookSize" class="block text-sm font-medium text-gray-700">Hook Size</label>
+                        <input type="text" id="hookSize" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="notesLink" class="block text-sm font-medium text-gray-700">Link to Apple Notes</label>
+                        <input type="text" id="notesLink" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="projectNotes" class="block text-sm font-medium text-gray-700">Notes</label>
+                        <textarea id="projectNotes" rows="4" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                    <div>
+                        <label for="projectImages" class="block text-sm font-medium text-gray-700">Images</label>
+                        <input type="file" id="projectImages" multiple accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <div id="image-preview" class="flex flex-wrap gap-2 mt-4"></div>
+                    </div>
+                </form>
+            </div>
+            <!-- Modal Footer (Fixed) -->
+            <div class="p-6 pt-2 flex justify-between items-center bg-white/90 backdrop-blur-sm rounded-b-3xl">
+                <button type="submit" form="projectForm" class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
+                    Save Project
+                </button>
+                <button type="button" onclick="closeModal('projectModal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-xl transition duration-200">
+                    Cancel
+                </button>
+                <button type="button" id="deleteProjectBtn" class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200 hidden">
+                    Delete Project
+                </button>
+            </div>
         </div>
     </div>
-    
+
     <!-- Notification Toast -->
     <div id="notification-toast" class="fixed bottom-8 right-8 bg-gray-800 text-white px-6 py-4 rounded-xl shadow-lg hidden"></div>
 
