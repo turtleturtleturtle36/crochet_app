@@ -14,7 +14,7 @@
         }
         body {
             font-family: 'Inter', sans-serif;
-            background: #f9d9b6;
+            background: #d0f0c0;
             background-size: cover;
             background-repeat: no-repeat;
             background-attachment: fixed;
@@ -543,85 +543,6 @@
             document.getElementById('deleteProjectBtn').classList.add('hidden');
             document.getElementById('image-preview').innerHTML = '';
         }
-
-        document.getElementById('saveProjectBtn').addEventListener('click', async (e) => {
-            e.preventDefault();
-            
-            const projectName = document.getElementById('projectName').value;
-            const projectCategory = document.getElementById('projectCategory').value;
-            const hookSize = document.getElementById('hookSize').value;
-            const yarn = document.getElementById('yarn').value;
-            const pattern = document.getElementById('pattern').value;
-            const notesLink = document.getElementById('notesLink').value;
-            const projectNotes = document.getElementById('projectNotes').value;
-            const projectId = document.getElementById('projectId').value;
-            const imageFiles = document.getElementById('projectImages').files;
-
-            let currentProject = window.appData.projects.find(p => p.id === projectId);
-            let imageUrls = currentProject ? currentProject.images || [] : [];
-            let mainImage = currentProject ? currentProject.mainImage : null;
-            
-            if (imageFiles.length > 0) {
-                showNotification('Uploading and compressing images...');
-                try {
-                    const newImageUrls = await window.uploadImages(imageFiles);
-                    imageUrls = [...imageUrls, ...newImageUrls];
-                    if (!mainImage) {
-                        mainImage = newImageUrls[0];
-                    }
-                } catch (error) {
-                    console.error("Image upload failed:", error);
-                    showNotification('Image upload failed. Please try again.');
-                    return;
-                }
-            }
-        
-            const projectData = {
-                id: projectId,
-                name: projectName,
-                category: projectCategory,
-                hookSize: hookSize,
-                yarn: yarn,
-                pattern: pattern,
-                notesLink: notesLink,
-                notes: projectNotes,
-                images: imageUrls,
-                mainImage: mainImage
-            };
-        
-            await window.saveProject(projectData);
-        });
-
-        document.getElementById('deleteProjectBtn').addEventListener('click', async () => {
-            const projectId = document.getElementById('projectId').value;
-            const result = await window.confirm("Are you sure you want to delete this project?");
-            if (result) {
-                await window.deleteProject(projectId);
-            }
-        });
-        
-        document.getElementById('projectImages').addEventListener('change', async (e) => {
-            const imagePreviewContainer = document.getElementById('image-preview');
-            imagePreviewContainer.innerHTML = '';
-            
-            showNotification('Processing images for preview...');
-            const newImageUrls = await window.uploadImages(e.target.files);
-            
-            newImageUrls.forEach(imgUrl => {
-                const imgWrapper = document.createElement('div');
-                imgWrapper.classList.add('relative', 'w-20', 'h-20', 'rounded-lg', 'overflow-hidden', 'group');
-                imgWrapper.innerHTML = `
-                    <img src="${imgUrl}" alt="Project Image" class="w-full h-full object-cover">
-                    <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onclick="setMainImage('${imgUrl}')" class="bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
-                            Set as Main
-                        </button>
-                    </div>
-                `;
-                imagePreviewContainer.appendChild(imgWrapper);
-            });
-            showNotification('Images processed.');
-        });
         
         // This is a polyfill for the confirm function to prevent issues on iframes.
         // It provides a basic UI for user confirmation.
@@ -641,9 +562,96 @@
             });
         };
 
-        // Initialize app on page load
-        initApp();
+        // All event listeners and app initialization moved here to ensure DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            initApp();
 
+            document.getElementById('viewToggleButton').addEventListener('click', toggleView);
+            document.getElementById('addProjectBtn').addEventListener('click', () => {
+                openModal('projectModal');
+                resetProjectForm();
+            });
+            document.getElementById('finishedToggle').addEventListener('click', toggleCollageView);
+            document.getElementById('cancelModalBtn').addEventListener('click', () => closeModal('projectModal'));
+            document.getElementById('saveProjectBtn').addEventListener('click', async (e) => {
+                e.preventDefault();
+                
+                const projectName = document.getElementById('projectName').value;
+                const projectCategory = document.getElementById('projectCategory').value;
+                const hookSize = document.getElementById('hookSize').value;
+                const yarn = document.getElementById('yarn').value;
+                const pattern = document.getElementById('pattern').value;
+                const notesLink = document.getElementById('notesLink').value;
+                const projectNotes = document.getElementById('projectNotes').value;
+                const projectId = document.getElementById('projectId').value;
+                const imageFiles = document.getElementById('projectImages').files;
+    
+                let currentProject = window.appData.projects.find(p => p.id === projectId);
+                let imageUrls = currentProject ? currentProject.images || [] : [];
+                let mainImage = currentProject ? currentProject.mainImage : null;
+                
+                if (imageFiles.length > 0) {
+                    showNotification('Uploading and compressing images...');
+                    try {
+                        const newImageUrls = await window.uploadImages(imageFiles);
+                        imageUrls = [...imageUrls, ...newImageUrls];
+                        if (!mainImage) {
+                            mainImage = newImageUrls[0];
+                        }
+                    } catch (error) {
+                        console.error("Image upload failed:", error);
+                        showNotification('Image upload failed. Please try again.');
+                        return;
+                    }
+                }
+    
+                const projectData = {
+                    id: projectId,
+                    name: projectName,
+                    category: projectCategory,
+                    hookSize: hookSize,
+                    yarn: yarn,
+                    pattern: pattern,
+                    notesLink: notesLink,
+                    notes: projectNotes,
+                    images: imageUrls,
+                    mainImage: mainImage
+                };
+    
+                await window.saveProject(projectData);
+            });
+    
+            document.getElementById('deleteProjectBtn').addEventListener('click', async () => {
+                const projectId = document.getElementById('projectId').value;
+                const result = await window.confirm("Are you sure you want to delete this project?");
+                if (result) {
+                    await window.deleteProject(projectId);
+                }
+            });
+            
+            document.getElementById('projectImages').addEventListener('change', async (e) => {
+                const imagePreviewContainer = document.getElementById('image-preview');
+                imagePreviewContainer.innerHTML = '';
+                
+                showNotification('Processing images for preview...');
+                const newImageUrls = await window.uploadImages(e.target.files);
+                
+                newImageUrls.forEach(imgUrl => {
+                    const imgWrapper = document.createElement('div');
+                    imgWrapper.classList.add('relative', 'w-20', 'h-20', 'rounded-lg', 'overflow-hidden', 'group');
+                    imgWrapper.innerHTML = `
+                        <img src="${imgUrl}" alt="Project Image" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="setMainImage('${imgUrl}')" class="bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
+                                Set as Main
+                            </button>
+                        </div>
+                    `;
+                    imagePreviewContainer.appendChild(imgWrapper);
+                });
+                showNotification('Images processed.');
+            });
+        });
     </script>
 </body>
 </html>
