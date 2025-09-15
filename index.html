@@ -12,48 +12,69 @@
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        // Firebase config and app ID are automatically provided in the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const storage = getStorage(app);
-
         let userId = null;
 
         window.appData = {
-            db,
-            auth,
-            storage,
-            userId,
-            appId,
+            db: null,
+            auth: null,
+            storage: null,
+            userId: null,
+            appId: null,
             projects: [],
             filteredProjects: [],
             currentProjectId: null,
             isVerticalView: false,
             showFinishedOnly: false
         };
-        
+
         async function initApp() {
             try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
+                // Check localStorage for a pre-saved appId and userId
+                const savedAppId = localStorage.getItem('crochet_appId');
+                const savedUserId = localStorage.getItem('crochet_userId');
+
+                if (savedAppId && savedUserId) {
+                    window.appData.appId = savedAppId;
+                    window.appData.userId = savedUserId;
+                    
+                    const app = initializeApp(firebaseConfig);
+                    window.appData.db = getFirestore(app);
+                    window.appData.auth = getAuth(app);
+                    window.appData.storage = getStorage(app);
+                    
+                    await signInWithCustomToken(window.appData.auth, initialAuthToken);
+                    
+                    loadProjects();
+                    document.getElementById('setupModal').classList.add('hidden');
+                    document.body.classList.remove('overflow-hidden');
                 } else {
-                    await signInAnonymously(auth);
+                    openModal('setupModal');
                 }
-                window.appData.userId = auth.currentUser.uid;
-                console.log("Firebase initialized. User signed in with ID:", window.appData.userId);
-                loadProjects();
             } catch (error) {
-                console.error("Firebase authentication failed:", error);
+                console.error("Firebase initialization failed:", error);
+            }
+        }
+        
+        window.saveSetup = function() {
+            const setupAppId = document.getElementById('setupAppId').value;
+            const setupUserId = document.getElementById('setupUserId').value;
+            
+            if (setupAppId && setupUserId) {
+                localStorage.setItem('crochet_appId', setupAppId);
+                localStorage.setItem('crochet_userId', setupUserId);
+                closeModal('setupModal');
+                window.location.reload();
+            } else {
+                showNotification('Please enter both IDs to proceed.');
             }
         }
 
         function loadProjects() {
-            const projectsRef = collection(db, 'artifacts', appId, 'users', window.appData.userId, 'projects');
+            const projectsRef = collection(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects');
             onSnapshot(projectsRef, (snapshot) => {
                 window.appData.projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 filterProjects(document.getElementById('searchBar').value);
@@ -68,10 +89,10 @@
         window.saveProject = async function(projectData) {
             try {
                 if (projectData.id) {
-                    const docRef = doc(db, 'artifacts', appId, 'users', window.appData.userId, 'projects', projectData.id);
+                    const docRef = doc(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects', projectData.id);
                     await setDoc(docRef, projectData, { merge: true });
                 } else {
-                    await addDoc(collection(db, 'artifacts', appId, 'users', window.appData.userId, 'projects'), {
+                    await addDoc(collection(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects'), {
                         ...projectData,
                         createdAt: serverTimestamp()
                     });
@@ -87,18 +108,17 @@
 
         window.deleteProject = async function(projectId) {
             try {
-                const projectDoc = await getDoc(doc(db, 'artifacts', appId, 'users', window.appData.userId, 'projects', projectId));
+                const projectDoc = await getDoc(doc(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects', projectId));
                 const projectData = projectDoc.data();
                 
-                // Delete images from storage
                 if (projectData.images && Array.isArray(projectData.images)) {
                     await Promise.all(projectData.images.map(imgUrl => {
-                        const fileRef = ref(storage, decodeURIComponent(imgUrl.split('?')[0].split('%2F').pop()));
+                        const fileRef = ref(window.appData.storage, decodeURIComponent(imgUrl.split('?')[0].split('%2F').pop()));
                         return deleteObject(fileRef).catch(e => console.error("Error deleting image:", e));
                     }));
                 }
 
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', window.appData.userId, 'projects', projectId));
+                await deleteDoc(doc(window.appData.db, 'artifacts', window.appData.appId, 'users', window.appData.userId, 'projects', projectId));
                 showNotification('Project deleted successfully!');
                 closeModal('projectModal');
 
@@ -111,7 +131,7 @@
         window.uploadImages = async function(files) {
             const imageUrls = [];
             const uploadPromises = Array.from(files).map(async file => {
-                const storageRef = ref(storage, `artifacts/${appId}/users/${window.appData.userId}/images/${Date.now()}-${file.name}`);
+                const storageRef = ref(window.appData.storage, `artifacts/${window.appData.appId}/users/${window.appData.userId}/images/${Date.now()}-${file.name}`);
                 await uploadBytes(storageRef, file);
                 const url = await getDownloadURL(storageRef);
                 imageUrls.push(url);
@@ -168,10 +188,8 @@
                 }
             });
 
-            // Sort by creation date descending
             images.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
-            // Display a limited number of the most recent images
             const displayLimit = 12;
             const imagesToDisplay = images.slice(0, displayLimit);
 
@@ -190,6 +208,410 @@
 
         // Initialize app on page load
         initApp();
+
+    </script>
+    <style>
+        html, body {
+            height: 100%;
+            touch-action: pan-y;
+            overflow: auto;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #fde6e3;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            transition: background-color 0.3s ease-in-out;
+            padding-top: 1rem;
+            padding-bottom: 2rem;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 800px;
+        }
+        .project-card {
+            min-width: 150px;
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            transform-origin: center;
+        }
+        .project-card:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+        }
+        .modal {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .modal-content {
+            animation: slideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .fade-out-up {
+            animation: fadeOutUp 0.3s ease-in-out forwards;
+        }
+        @keyframes fadeOutUp {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(-20px); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+    <div class="container mx-auto mt-4">
+        <!-- Main page Title Line -->
+        <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 drop-shadow-lg mb-2 sm:mb-0">Angie's Crochet Projects</h1>
+            <div class="flex space-x-2">
+                <button id="viewToggleButton" onclick="toggleView()" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                    Switch to List View
+                </button>
+                <button onclick="openModal('projectModal'); resetProjectForm();" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                    + Add Project
+                </button>
+            </div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="mb-8">
+            <input type="text" id="searchBar" oninput="filterProjects(this.value)" placeholder="Search projects by name, pattern, yarn, notes or hook size..." class="w-full p-3 rounded-xl border border-gray-300 shadow-sm focus:ring-purple-500 focus:border-purple-500">
+        </div>
+
+        <!-- Project Categories -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div id="wishlist" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
+                <h2 class="text-xl font-bold text-gray-700 mb-4">Wishlist</h2>
+                <div id="wishlist-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+            </div>
+            <div id="wip" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
+                <h2 class="text-xl font-bold text-gray-700 mb-4">Work in Progress</h2>
+                <div id="wip-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+            </div>
+            <div id="finished" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
+                <h2 class="text-xl font-bold text-gray-700 mb-4">Finished</h2>
+                <div id="finished-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+            </div>
+            </div>
+        
+        <!-- Showcase Collage Section -->
+        <div class="mt-16">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-2xl font-bold text-gray-800">Recent Creations</h2>
+                <button id="finishedToggle" onclick="toggleCollageView()" class="bg-gray-200 text-gray-700 text-sm font-semibold py-2 px-4 rounded-full transition duration-200 hover:bg-gray-300">
+                    Show Finished Only
+                </button>
+            </div>
+            <div id="image-collage" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <!-- Images will be rendered here dynamically -->
+            </div>
+        </div>
+        
+        <!-- Main page Title Line Footer -->
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-700 text-center mt-16 mb-4">Does it cro-slay?</h2>
+    </div>
+
+    <!-- Modal for adding/editing projects -->
+    <div id="projectModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="modal-content bg-white rounded-3xl shadow-2xl w-11/12 max-w-2xl transform flex flex-col max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="p-6 pb-2">
+                <h3 id="modalTitle" class="text-2xl font-bold text-gray-800 text-center">Add New Project</h3>
+            </div>
+            <!-- Modal Body (Scrollable) -->
+            <div class="p-6 pt-2 overflow-y-auto">
+                <form id="projectForm" class="space-y-4">
+                    <input type="hidden" id="projectId">
+                    <div>
+                        <label for="projectName" class="block text-sm font-medium text-gray-700">Project Name</label>
+                        <input type="text" id="projectName" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <div>
+                        <label for="projectCategory" class="block text-sm font-medium text-gray-700">Category</label>
+                        <select id="projectCategory" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                            <option value="wishlist">Wishlist</option>
+                            <option value="wip">Work in Progress</option>
+                            <option value="finished">Finished</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="pattern" class="block text-sm font-medium text-gray-700">Pattern</label>
+                        <input type="text" id="pattern" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="yarn" class="block text-sm font-medium text-gray-700">Yarn</label>
+                        <input type="text" id="yarn" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="hookSize" class="block text-sm font-medium text-gray-700">Hook Size</label>
+                        <input type="text" id="hookSize" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="notesLink" class="block text-sm font-medium text-gray-700">Link to Apple Notes</label>
+                        <input type="text" id="notesLink" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="projectNotes" class="block text-sm font-medium text-gray-700">Notes</label>
+                        <textarea id="projectNotes" rows="4" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
+                    </div>
+                    <div>
+                        <label for="projectImages" class="block text-sm font-medium text-gray-700">Images</label>
+                        <input type="file" id="projectImages" multiple accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <div id="image-preview" class="flex flex-wrap gap-2 mt-4"></div>
+                    </div>
+                </form>
+            </div>
+            <!-- Modal Footer (Fixed) -->
+            <div class="p-6 pt-2 flex justify-between items-center bg-white/90 backdrop-blur-sm rounded-b-3xl">
+                <button type="button" id="saveProjectBtn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
+                    Save Project
+                </button>
+                <button type="button" onclick="closeModal('projectModal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-xl transition duration-200">
+                    Cancel
+                </button>
+                <button type="button" id="deleteProjectBtn" class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200 hidden">
+                    Delete Project
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- One-time Setup Modal -->
+    <div id="setupModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div class="modal-content bg-white rounded-3xl shadow-2xl p-6 w-11/12 max-w-sm transform">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">One-Time Setup</h3>
+            <p class="text-sm text-gray-600 mb-4 text-center">Please enter your project and user IDs to connect your app. You can find these in the Firebase console.</p>
+            <div class="space-y-4">
+                <div>
+                    <label for="setupAppId" class="block text-sm font-medium text-gray-700">Firebase Project ID</label>
+                    <input type="text" id="setupAppId" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm" placeholder="Your Project ID" required>
+                </div>
+                <div>
+                    <label for="setupUserId" class="block text-sm font-medium text-gray-700">Firebase User ID</label>
+                    <input type="text" id="setupUserId" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm" placeholder="Your User ID" required>
+                </div>
+                <div class="flex justify-center pt-2">
+                    <button type="button" onclick="saveSetup()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
+                        Save & Connect
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notification Toast -->
+    <div id="notification-toast" class="fixed bottom-8 right-8 bg-gray-800 text-white px-6 py-4 rounded-xl shadow-lg hidden"></div>
+
+    <script>
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('fade-out-up');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('fade-out-up');
+            }, 300);
+        }
+
+        function showNotification(message) {
+            const toast = document.getElementById('notification-toast');
+            toast.textContent = message;
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        function renderProjects() {
+            const categories = ['wishlist', 'wip', 'finished'];
+            const viewToggleButton = document.getElementById('viewToggleButton');
+            
+            if (window.appData.isVerticalView) {
+                viewToggleButton.textContent = 'Switch to Gallery View';
+            } else {
+                viewToggleButton.textContent = 'Switch to List View';
+            }
+
+            categories.forEach(category => {
+                const container = document.getElementById(`${category}-projects`);
+                container.innerHTML = '';
+                const filteredProjects = window.appData.filteredProjects.filter(p => p.category === category).sort((a, b) => a.createdAt?.toMillis() - b.createdAt?.toMillis());
+                
+                // Set the correct layout classes based on the view mode
+                container.classList.remove('flex-col', 'space-y-4');
+                container.classList.remove('flex-row', 'overflow-x-auto', 'space-x-4');
+
+                if (window.appData.isVerticalView) {
+                    container.classList.add('flex', 'flex-col', 'space-y-4');
+                } else {
+                    container.classList.add('flex', 'flex-row', 'overflow-x-auto', 'space-x-4');
+                }
+                
+                if (filteredProjects.length === 0) {
+                    container.innerHTML = `<p class="text-sm text-gray-500 text-center py-4">No projects in this category.</p>`;
+                } else {
+                    filteredProjects.forEach(project => {
+                        const card = document.createElement('div');
+                        card.classList.add('project-card', 'bg-white', 'p-4', 'rounded-xl', 'shadow-sm', 'cursor-pointer', 'border', 'border-gray-200', 'hover:border-blue-500');
+                        
+                        let thumbnailHtml = '';
+                        if (project.mainImage) {
+                            thumbnailHtml = `<img src="${project.mainImage}" alt="${project.name}" class="w-full h-24 object-cover mb-2 rounded-lg">`;
+                        } else if (project.images && project.images.length > 0) {
+                            thumbnailHtml = `<img src="${project.images[0]}" alt="${project.name}" class="w-full h-24 object-cover mb-2 rounded-lg">`;
+                        }
+
+                        card.innerHTML = `
+                            ${thumbnailHtml}
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-gray-800 text-xl break-all">${project.name}</h3>
+                                <div class="w-2.5 h-2.5 rounded-full ${project.category === 'wishlist' ? 'bg-blue-500' : project.category === 'wip' ? 'bg-yellow-500' : 'bg-green-500'}"></div>
+                            </div>
+                        `;
+                        card.onclick = () => openProject(project);
+                        container.appendChild(card);
+                    });
+                }
+            });
+        }
+        
+        function openProject(project) {
+            window.appData.currentProjectId = project.id;
+            document.getElementById('projectId').value = project.id;
+            document.getElementById('projectName').value = project.name;
+            document.getElementById('projectCategory').value = project.category;
+            document.getElementById('hookSize').value = project.hookSize || '';
+            document.getElementById('yarn').value = project.yarn || '';
+            document.getElementById('pattern').value = project.pattern || '';
+            document.getElementById('notesLink').value = project.notesLink || '';
+            document.getElementById('projectNotes').value = project.notes || '';
+            document.getElementById('modalTitle').textContent = `Edit Project`;
+            document.getElementById('deleteProjectBtn').classList.remove('hidden');
+            
+            const imagePreviewContainer = document.getElementById('image-preview');
+            imagePreviewContainer.innerHTML = '';
+            
+            if (project.images && Array.isArray(project.images)) {
+                project.images.forEach((imgUrl, index) => {
+                    const imgWrapper = document.createElement('div');
+                    imgWrapper.classList.add('relative', 'w-20', 'h-20', 'rounded-lg', 'overflow-hidden', 'group');
+                    imgWrapper.innerHTML = `
+                        <img src="${imgUrl}" alt="Project Image" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="setMainImage('${imgUrl}')" class="bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
+                                Set as Main
+                            </button>
+                        </div>
+                    `;
+                    imagePreviewContainer.appendChild(imgWrapper);
+                });
+            }
+            openModal('projectModal');
+        }
+
+        window.setMainImage = function(imgUrl) {
+            if (window.appData.currentProjectId) {
+                const project = window.appData.projects.find(p => p.id === window.appData.currentProjectId);
+                if (project) {
+                    project.mainImage = imgUrl;
+                    window.saveProject(project);
+                }
+            }
+        };
+
+        function resetProjectForm() {
+            window.appData.currentProjectId = null;
+            document.getElementById('projectForm').reset();
+            document.getElementById('projectId').value = '';
+            document.getElementById('modalTitle').textContent = 'Add New Project';
+            document.getElementById('deleteProjectBtn').classList.add('hidden');
+            document.getElementById('image-preview').innerHTML = '';
+        }
+
+        document.getElementById('saveProjectBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            const projectName = document.getElementById('projectName').value;
+            const projectCategory = document.getElementById('projectCategory').value;
+            const hookSize = document.getElementById('hookSize').value;
+            const yarn = document.getElementById('yarn').value;
+            const pattern = document.getElementById('pattern').value;
+            const notesLink = document.getElementById('notesLink').value;
+            const projectNotes = document.getElementById('projectNotes').value;
+            const projectId = document.getElementById('projectId').value;
+            const imageFiles = document.getElementById('projectImages').files;
+
+            let currentProject = window.appData.projects.find(p => p.id === projectId);
+            let imageUrls = currentProject ? currentProject.images || [] : [];
+            let mainImage = currentProject ? currentProject.mainImage : null;
+            
+            if (imageFiles.length > 0) {
+                showNotification('Uploading images...');
+                try {
+                    const newImageUrls = await window.uploadImages(imageFiles);
+                    imageUrls = [...imageUrls, ...newImageUrls];
+                    if (!mainImage) {
+                         mainImage = newImageUrls[0];
+                    }
+                } catch (error) {
+                    console.error("Image upload failed:", error);
+                    showNotification('Image upload failed. Please try again.');
+                    return;
+                }
+            }
+
+            const projectData = {
+                id: projectId,
+                name: projectName,
+                category: projectCategory,
+                hookSize: hookSize,
+                yarn: yarn,
+                pattern: pattern,
+                notesLink: notesLink,
+                notes: projectNotes,
+                images: imageUrls,
+                mainImage: mainImage
+            };
+
+            await window.saveProject(projectData);
+        });
+        
+        document.getElementById('deleteProjectBtn').addEventListener('click', () => {
+            const projectId = document.getElementById('projectId').value;
+            if (confirm("Are you sure you want to delete this project?")) {
+                window.deleteProject(projectId);
+            }
+        });
+        
+        document.getElementById('projectImages').addEventListener('change', (e) => {
+            const imagePreviewContainer = document.getElementById('image-preview');
+            imagePreviewContainer.innerHTML = '';
+            Array.from(e.target.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imgWrapper = document.createElement('div');
+                    imgWrapper.classList.add('relative', 'w-20', 'h-20', 'rounded-lg', 'overflow-hidden', 'group');
+                    imgWrapper.innerHTML = `
+                        <img src="${e.target.result}" alt="Project Image" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="setMainImage('${e.target.result}')" class="bg-white text-gray-800 px-2 py-1 text-xs rounded-full shadow-md hover:bg-gray-100">
+                                Set as Main
+                            </button>
+                        </div>
+                    `;
+                    imagePreviewContainer.appendChild(imgWrapper);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
 
     </script>
     <style>
