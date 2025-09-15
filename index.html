@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
@@ -20,8 +20,8 @@
         let db;
         let auth;
         let storage;
-        let userId = 'public-user'; // Default value, will be updated by auth state listener
-        
+        let userId;
+
         // Global state for the app
         window.appData = {
             db: null,
@@ -47,6 +47,15 @@
         const modalTitle = document.getElementById('modalTitle');
         const addProjectBtn = document.getElementById('addProjectBtn');
         const finishedToggle = document.getElementById('finishedToggle');
+        const mainAppContainer = document.getElementById('mainAppContainer');
+        const authContainer = document.getElementById('authContainer');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const toggleToRegisterBtn = document.getElementById('toggleToRegisterBtn');
+        const toggleToLoginBtn = document.getElementById('toggleToLoginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
         
         // Custom modal functions
         let confirmAction = null;
@@ -78,7 +87,7 @@
         }
 
         // Firebase Initialization
-        async function initFirebase() {
+        function initFirebase() {
             try {
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
@@ -88,18 +97,18 @@
                 window.appData.db = db;
                 window.appData.auth = auth;
                 window.appData.storage = storage;
-
-                // Listen for authentication state changes
+                
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        console.log("Firebase initialized. Anonymous user signed in with ID:", userId);
+                        mainAppContainer.classList.remove('hidden');
+                        authContainer.classList.add('hidden');
                         loadProjects();
                     } else {
-                        signInAnonymously(auth);
+                        mainAppContainer.classList.add('hidden');
+                        authContainer.classList.remove('hidden');
                     }
                 });
-
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 showNotification('Error: Firebase initialization failed. Check the console for details.');
@@ -107,7 +116,6 @@
         }
         
         function loadProjects() {
-            // Using a private, user-specific collection path for data security
             const projectsRef = collection(db, 'artifacts', appId, 'users', userId, 'projects');
             onSnapshot(projectsRef, (snapshot) => {
                 window.appData.projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -122,12 +130,10 @@
         
         window.saveProject = async function(projectData) {
             try {
-                // If a project ID exists, update the existing document.
                 if (projectData.id) {
                     const docRef = doc(db, 'artifacts', appId, 'users', userId, 'projects', projectData.id);
                     await setDoc(docRef, projectData, { merge: true });
                 } else {
-                    // Otherwise, add a new document.
                     await addDoc(collection(db, 'artifacts', appId, 'users', userId, 'projects'), {
                         ...projectData,
                         createdAt: serverTimestamp()
@@ -144,8 +150,6 @@
 
         window.deleteProject = async function(projectId) {
             try {
-                // Deleting the document from Firestore.
-                // Note: Image deletion from storage is removed due to permission errors for unauthenticated users.
                 await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'projects', projectId));
                 showNotification('Project deleted successfully!');
                 closeModal('projectModal');
@@ -220,10 +224,8 @@
                 }
             });
 
-            // Sort by creation date descending
             images.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
-            // Display a limited number of the most recent images
             const displayLimit = 12;
             const imagesToDisplay = images.slice(0, displayLimit);
 
@@ -239,7 +241,6 @@
             }
         }
 
-        // Modal and utility functions (unchanged from your file)
         function openModal(modalId) {
             document.getElementById(modalId).classList.remove('hidden');
         }
@@ -276,7 +277,6 @@
                 container.innerHTML = '';
                 const filteredProjects = window.appData.filteredProjects.filter(p => p.category === category).sort((a, b) => a.createdAt?.toMillis() - b.createdAt?.toMillis());
                 
-                // Set the correct layout classes based on the view mode
                 container.classList.remove('flex-col', 'space-y-4');
                 container.classList.remove('flex-row', 'overflow-x-auto', 'space-x-4');
 
@@ -368,11 +368,9 @@
             document.getElementById('image-preview').innerHTML = '';
         }
         
-        // This function will be called once the document is fully loaded
         window.onload = function() {
             initFirebase();
             
-            // Event Listeners
             addProjectBtn.addEventListener('click', () => {
                 openModal('projectModal');
                 resetProjectForm();
@@ -477,7 +475,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: #d8c4e4; /* Soft purple background */
+            background: linear-gradient(to right, #FFDAB9, #FFC0CB, #DA70D6, #9932CC, #4B0082); /* Rainbow gradient */
             transition: background-color 0.3s ease-in-out;
         }
         .container {
@@ -516,55 +514,96 @@
     </style>
 </head>
 <body class="p-4 sm:p-8 min-h-screen py-12">
-    <!-- Witty Slogan at the top -->
-    <p class="text-xl text-center text-purple-900 font-semibold italic mb-12 drop-shadow-sm">"I'm not addicted to crochet, we're just in a committed relationship."</p>
+    <div id="authContainer" class="flex flex-col items-center justify-center min-h-screen p-4">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8">
+            <h2 class="text-3xl font-bold text-gray-800 text-center mb-6" id="authTitle">Sign In</h2>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label for="loginEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="loginEmail" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500" required>
+                </div>
+                <div>
+                    <label for="loginPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="loginPassword" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500" required>
+                </div>
+                <button type="submit" id="loginBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
+                    Sign In
+                </button>
+            </form>
+            <form id="registerForm" class="space-y-4 hidden">
+                <div>
+                    <label for="registerEmail" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="registerEmail" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500" required>
+                </div>
+                <div>
+                    <label for="registerPassword" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="registerPassword" class="mt-1 block w-full p-3 border border-gray-300 rounded-xl shadow-sm focus:ring-purple-500 focus:border-purple-500" required>
+                </div>
+                <button type="submit" id="registerBtn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
+                    Register
+                </button>
+            </form>
+            <div class="mt-4 text-center">
+                <button id="toggleToRegisterBtn" class="text-purple-600 hover:text-purple-800 transition duration-200 text-sm">Don't have an account? Register</button>
+                <button id="toggleToLoginBtn" class="text-purple-600 hover:text-purple-800 transition duration-200 text-sm hidden">Already have an account? Sign In</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Main UI Container -->
-    <div class="container mx-auto">
-        <div class="flex flex-col sm:flex-row items-center justify-between mb-8 space-y-4 sm:space-y-0">
-            <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 drop-shadow-lg">Angie's Crochet Projects</h1>
-            <p class="text-lg text-center text-purple-600 mb-4 font-semibold italic">"My hooks are ready for an adventure."</p>
-            <div class="flex space-x-2">
-                <button id="viewToggleButton" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
-                    Switch to List View
-                </button>
-                <button id="addProjectBtn" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
-                    + Add Project
-                </button>
-            </div>
-        </div>
-        
-        <!-- Search Bar -->
-        <div class="mb-8">
-            <input type="text" id="searchBar" oninput="filterProjects(this.value)" placeholder="Search projects by name, pattern, yarn, notes or hook size..." class="w-full p-3 rounded-xl border border-gray-300 shadow-sm focus:ring-purple-500 focus:border-purple-500">
-        </div>
+    <div id="mainAppContainer" class="hidden">
+        <!-- Witty Slogan at the top -->
+        <p class="text-xl text-center text-purple-900 font-semibold italic mb-12 drop-shadow-sm">"I'm not addicted to crochet, we're just in a committed relationship."</p>
 
-        <!-- Project Categories -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div id="wishlist" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
-                <h2 class="text-xl font-bold text-gray-700 mb-4">Wishlist</h2>
-                <div id="wishlist-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+        <!-- Main UI Container -->
+        <div class="container mx-auto">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-8 space-y-4 sm:space-y-0">
+                <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 drop-shadow-lg">Angie's Crochet Projects</h1>
+                <p class="text-lg text-center text-purple-600 mb-4 font-semibold italic">"My hooks are ready for an adventure."</p>
+                <div class="flex space-x-2">
+                    <button id="viewToggleButton" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                        Switch to List View
+                    </button>
+                    <button id="addProjectBtn" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                        + Add Project
+                    </button>
+                    <button id="logoutBtn" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                        Logout
+                    </button>
+                </div>
             </div>
-            <div id="wip" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
-                <h2 class="text-xl font-bold text-gray-700 mb-4">Work in Progress</h2>
-                <div id="wip-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+            
+            <!-- Search Bar -->
+            <div class="mb-8">
+                <input type="text" id="searchBar" placeholder="Search projects by name, pattern, yarn, notes or hook size..." class="w-full p-3 rounded-xl border border-gray-300 shadow-sm focus:ring-purple-500 focus:border-purple-500">
             </div>
-            <div id="finished" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
-                <h2 class="text-xl font-bold text-gray-700 mb-4">Finished</h2>
-                <div id="finished-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+
+            <!-- Project Categories -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div id="wishlist" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
+                    <h2 class="text-xl font-bold text-gray-700 mb-4">Wishlist</h2>
+                    <div id="wishlist-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+                </div>
+                <div id="wip" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
+                    <h2 class="text-xl font-bold text-gray-700 mb-4">Work in Progress</h2>
+                    <div id="wip-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+                </div>
+                <div id="finished" class="bg-white/70 backdrop-blur-md rounded-3xl p-6 shadow-lg">
+                    <h2 class="text-xl font-bold text-gray-700 mb-4">Finished</h2>
+                    <div id="finished-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
+                </div>
             </div>
-        </div>
-        
-        <!-- Showcase Collage Section -->
-        <div class="mt-16">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">Recent Creations</h2>
-                <button id="finishedToggle" class="bg-gray-200 text-gray-700 text-sm font-semibold py-2 px-4 rounded-full transition duration-200 hover:bg-gray-300">
-                    Show Finished Only
-                </button>
-            </div>
-            <div id="image-collage" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                <!-- Images will be rendered here dynamically -->
+            
+            <!-- Showcase Collage Section -->
+            <div class="mt-16">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Recent Creations</h2>
+                    <button id="finishedToggle" class="bg-gray-200 text-gray-700 text-sm font-semibold py-2 px-4 rounded-full transition duration-200 hover:bg-gray-300">
+                        Show Finished Only
+                    </button>
+                </div>
+                <div id="image-collage" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    <!-- Images will be rendered here dynamically -->
+                </div>
             </div>
         </div>
     </div>
