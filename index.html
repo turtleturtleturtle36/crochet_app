@@ -11,9 +11,8 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, addDoc, serverTimestamp, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your Firebase config goes here. Delete the line below and paste the config object from your Firebase console.
-        const app = initializeApp(firebaseConfig);
-        
+        // Your Firebase config goes here. The app will construct this based on your Project ID.
+        let firebaseConfig = {};
         
         window.appData = {
             db: null,
@@ -34,6 +33,15 @@
                 
                 if (savedAppId) {
                     window.appData.appId = savedAppId;
+                    
+                    firebaseConfig = {
+                        apiKey: "unused-for-now",
+                        authDomain: savedAppId + ".firebaseapp.com",
+                        projectId: savedAppId,
+                        storageBucket: savedAppId + ".appspot.com",
+                        messagingSenderId: "unused",
+                        appId: "unused"
+                    };
                     
                     const app = initializeApp(firebaseConfig);
                     window.appData.db = getFirestore(app);
@@ -248,7 +256,7 @@
         }
         body {
             font-family: 'Inter', sans-serif;
-            background: #e6ffe6;
+            background: #e0cff0; /* New lavender background */
             background-size: cover;
             background-repeat: no-repeat;
             background-attachment: fixed;
@@ -295,9 +303,12 @@
 </head>
 <body class="p-4 sm:p-8">
     <div class="container mx-auto mt-4">
-        <!-- Main page Title Line -->
+        <!-- Main page Title and buttons -->
         <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 drop-shadow-lg mb-2 sm:mb-0">Angie's Crochet Projects</h1>
+            <div class="flex flex-col items-center sm:items-start mb-2 sm:mb-0">
+                <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 drop-shadow-lg mb-0">Angie's Crochet Projects</h1>
+                <h2 class="text-lg sm:text-xl font-medium text-gray-700">Crafting happiness, one stitch at a time.</h2>
+            </div>
             <div class="flex space-x-2">
                 <button id="viewToggleButton" onclick="toggleView()" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
                     Switch to List View
