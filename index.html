@@ -14,7 +14,7 @@
         }
         body {
             font-family: 'Inter', sans-serif;
-            background: #f3c4c4;
+            background: #f9d9b6;
             background-size: cover;
             background-repeat: no-repeat;
             background-attachment: fixed;
@@ -68,10 +68,10 @@
                 <h2 class="text-lg sm:text-xl font-medium text-gray-700">Crafting happiness, one stitch at a time.</h2>
             </div>
             <div class="flex space-x-2">
-                <button id="viewToggleButton" onclick="toggleView()" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                <button id="viewToggleButton" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
                     Switch to List View
                 </button>
-                <button onclick="openModal('projectModal'); resetProjectForm();" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
+                <button id="addProjectBtn" class="bg-white/90 text-purple-600 font-semibold py-2 px-4 rounded-xl shadow-md transition duration-200 hover:bg-gray-100">
                     + Add Project
                 </button>
             </div>
@@ -102,7 +102,7 @@
         <div class="mt-16">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-2xl font-bold text-gray-800">Recent Creations</h2>
-                <button id="finishedToggle" onclick="toggleCollageView()" class="bg-gray-200 text-gray-700 text-sm font-semibold py-2 px-4 rounded-full transition duration-200 hover:bg-gray-300">
+                <button id="finishedToggle" class="bg-gray-200 text-gray-700 text-sm font-semibold py-2 px-4 rounded-full transition duration-200 hover:bg-gray-300">
                     Show Finished Only
                 </button>
             </div>
@@ -170,7 +170,7 @@
                 <button type="button" id="saveProjectBtn" class="bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200">
                     Save Project
                 </button>
-                <button type="button" onclick="closeModal('projectModal')" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-xl transition duration-200">
+                <button type="button" id="cancelModalBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-3 px-6 rounded-xl transition duration-200">
                     Cancel
                 </button>
                 <button type="button" id="deleteProjectBtn" class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-xl shadow-md transition duration-200 hidden">
