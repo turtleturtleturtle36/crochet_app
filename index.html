@@ -45,7 +45,7 @@
                     await signInAnonymously(auth);
                 }
                 window.appData.userId = auth.currentUser.uid;
-                console.log("Firebase initialized. User signed in:", window.appData.userId);
+                console.log("Firebase initialized. User signed in with ID:", window.appData.userId);
                 loadProjects();
             } catch (error) {
                 console.error("Firebase authentication failed:", error);
@@ -111,7 +111,7 @@
         window.uploadImages = async function(files) {
             const imageUrls = [];
             const uploadPromises = Array.from(files).map(async file => {
-                const storageRef = ref(storage, `images/${Date.now()}-${file.name}`);
+                const storageRef = ref(storage, `artifacts/${appId}/users/${window.appData.userId}/images/${Date.now()}-${file.name}`);
                 await uploadBytes(storageRef, file);
                 const url = await getDownloadURL(storageRef);
                 imageUrls.push(url);
@@ -279,7 +279,7 @@
                 <h2 class="text-xl font-bold text-gray-700 mb-4">Finished</h2>
                 <div id="finished-projects" class="flex flex-row overflow-x-auto space-x-4"></div>
             </div>
-        </div>
+            </div>
         
         <!-- Showcase Collage Section -->
         <div class="mt-16">
